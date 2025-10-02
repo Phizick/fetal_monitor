@@ -1,0 +1,176 @@
+@use '../../../styles/variables.scss' as *;
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  background: $background-accent;
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+  padding: 24px;
+}
+
+.subtitle {
+  color: $text-subtitle-color;
+  margin-bottom: 0;
+}
+
+.statCard {
+  height: 100%;
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+
+  .ant-card-body {
+    padding: 20px;
+  }
+}
+
+.changePositive {
+  color: #3f8600;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.changeNegative {
+  color: #cf1322;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.tabsSection {
+  background: $background-accent;
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+  padding: 24px;
+  flex: 1;
+
+  .ant-tabs {
+    margin-bottom: 16px;
+  }
+}
+
+.tabsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tabsTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tabsActionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabsActionsRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tabsActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  width: 360px;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.addButton {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.columnSettingsButton {
+  @extend .actionButton;
+  font-size: 12px;
+
+  .anticon {
+    margin-right: 4px;
+  }
+}
+
+.tablePlaceholder {
+  text-align: center;
+  padding: 48px;
+  background: $background-color;
+  border-radius: $border-radius;
+  border: 2px dashed $border-color;
+}
+
+.tableContainer {
+  height: calc(100vh - 300px);
+  min-height: 400px;
+  background: #fff;
+  border-radius: $border-radius;
+  border: 1px solid $border-color;
+  overflow: hidden;
+}
+
+@media (max-width: $mobile-breakpoint) {
+  .tabsHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabsActionsLeft {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  .tabsActionsRight {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .tabsActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .searchInput {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  .actionButton {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}

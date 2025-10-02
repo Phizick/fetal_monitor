@@ -1,0 +1,14 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_ENV_FILE: .env.frontend
+        VITE_API_BASE_URL: http://176.109.106.126:4000
+        VITE_WS_BASE_URL: http://176.109.106.126:4000
+    container_name: itelma-frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+

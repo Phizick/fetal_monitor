@@ -1,0 +1,44 @@
+@use '../../styles/variables.scss' as *;
+
+:global(.ant-table-tbody > tr) {
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+}
+
+
+.phoneNumber {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  color: $text-subtitle-color;
+}
+
+.medicationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.medicationTag {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  color: $text-subtitle-color;
+}
+
+.pathologyTooltip {
+  max-width: 300px;
+
+  .pathologyDesc {
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .pathologiesList {
+    margin: 0;
+    padding-left: 16px;
+  }
+}

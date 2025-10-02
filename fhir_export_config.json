@@ -1,0 +1,37 @@
+{
+  "export_configs": {
+    "default": {
+      "protocols": ["fhir_r4"],
+      "fhir": {
+        "version": "R4",
+        "base_url": "http://localhost:8080/fhir",
+        "auth": {
+          "type": "none"
+        },
+        "mapping": {
+          "fhr_loinc": "8867-4",
+          "uc_loinc": "11367-0",
+          "device_type": "CTG_MONITOR",
+          "device_manufacturer": "Fetal Monitoring System"
+        }
+      }
+    },
+    "mis_hospital_1": {
+      "protocols": ["fhir_r4"],
+      "fhir": {
+        "version": "R4",
+        "base_url": "http://mis-hospital-1/fhir",
+        "auth": {
+          "type": "bearer",
+          "token": "your_token_here"
+        },
+        "mapping": {
+          "fhr_loinc": "8867-4",
+          "uc_loinc": "11367-0",
+          "device_type": "CTG_MONITOR",
+          "device_manufacturer": "Fetal Monitoring System"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,141 @@
+# Автономный Dockerfile без внешних зависимостей
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Установка Python 3.12 и системных зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    curl \
+    wget \
+    gnupg \
+    build-essential \
+    nginx \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y python3.12 python3.12-pip python3.12-dev \
+    && ln -s /usr/bin/python3.12 /usr/bin/python \
+    && ln -s /usr/bin/pip3 /usr/bin/pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка Node.js 18
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Установка MongoDB
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | apt-key add - \
+    && echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list \
+    && apt-get update \
+    && apt-get install -y mongodb-org \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование и установка Python зависимостей
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копирование исходного кода
+COPY . .
+
+# Сборка фронтенда
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+COPY frontend/ ./
+RUN npm run build
+
+# Перемещение собранного фронтенда
+WORKDIR /app
+RUN mv frontend/build ./frontend_build
+
+# Конфигурация Nginx
+RUN echo 'server {\n\
+    listen 80;\n\
+    server_name localhost;\n\
+    \n\
+    location / {\n\
+        root /app/frontend_build;\n\
+        index index.html;\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+    \n\
+    location ~ ^/(patients|monitoring|stream|sim|health|docs|openapi\\.json) {\n\
+        proxy_pass http://localhost:8081$request_uri;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
+    }\n\
+}' > /etc/nginx/sites-available/default
+
+# Переменные окружения
+ENV HOST=0.0.0.0 \
+    PORT=8081 \
+    MONGO_URI=mongodb://localhost:27017 \
+    MONGO_DB=fetal \
+    TELEGRAM_BOT_TOKEN=8231116636:AAEzm1aDfPAo1yXY4Zmv6pjekIqnokk3afs
+
+EXPOSE 80 8081
+
+# Скрипт запуска
+RUN echo '#!/bin/bash\n\
+echo "🏥 Запуск системы мониторинга КТГ..."\n\
+\n\
+echo "🗄️  Запуск MongoDB..."\n\
+mongod --fork --logpath /var/log/mongodb.log --dbpath /var/lib/mongodb\n\
+echo "✅ MongoDB запущен"\n\
+\n\
+echo "🚀 Запуск API сервера..."\n\
+uvicorn realtime_api:app --host ${HOST:-0.0.0.0} --port ${PORT:-8081} &\n\
+API_PID=$!\n\
+echo "✅ API сервер запущен (PID: $API_PID)"\n\
+\n\
+echo "🌐 Запуск Nginx для фронтенда..."\n\
+nginx -g "daemon off;" &\n\
+NGINX_PID=$!\n\
+echo "✅ Nginx запущен (PID: $NGINX_PID)"\n\
+\n\
+echo "🤖 Запуск Telegram бота..."\n\
+python -c "\n\
+import asyncio\n\
+from telegram_bot import telegram_bot, notification_system\n\
+\n\
+async def run_bot():\n\
+    print(\"✅ Telegram бот запущен и готов к работе!\")\n\
+    while True:\n\
+        await asyncio.sleep(60)\n\
+\n\
+asyncio.run(run_bot())\n\
+" &\n\
+BOT_PID=$!\n\
+echo "✅ Telegram бот запущен (PID: $BOT_PID)"\n\
+\n\
+echo "=" * 50\n\
+echo "✅ ВСЕ СЕРВИСЫ ЗАПУЩЕНЫ!"\n\
+echo "=" * 50\n\
+echo "🌐 Frontend: http://localhost"\n\
+echo "🔧 API сервер: http://localhost:8081"\n\
+echo "📊 Swagger UI: http://localhost:8081/docs"\n\
+echo "🤖 Telegram бот: активен"\n\
+echo "=" * 50\n\
+\n\
+# Cleanup function\n\
+cleanup() {\n\
+    echo "🛑 Остановка сервисов..."\n\
+    kill $API_PID $NGINX_PID $BOT_PID 2>/dev/null\n\
+    mongod --shutdown 2>/dev/null\n\
+    exit 0\n\
+}\n\
+\n\
+# Signal handling\n\
+trap cleanup SIGTERM SIGINT\n\
+\n\
+# Wait\n\
+wait\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

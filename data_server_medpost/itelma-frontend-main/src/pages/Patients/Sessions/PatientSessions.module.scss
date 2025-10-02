@@ -1,0 +1,7 @@
+@use '../../../styles/variables.scss' as *;
+
+.container { height: 100%; display: flex; flex-direction: column; gap: 24px; }
+.content { background: $background-accent; border-radius: $border-radius; box-shadow: $box-shadow; padding: 24px; flex: 1; }
+.center { display: flex; align-items: center; justify-content: center; height: 100%; }
+
+

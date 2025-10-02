@@ -1,0 +1,32 @@
+services:
+  postgres-itelma:
+    container_name: postgres-itelma
+    image: postgres:17
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "5452:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app-itelma:
+    container_name: app-itelma
+    build:
+      context: .
+    env_file:
+      - .env.production
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres-itelma
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+
+volumes:
+  postgres_data:

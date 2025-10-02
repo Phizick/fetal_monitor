@@ -1,0 +1,26 @@
+// Цвета
+$background-color: #f5f5f5;
+$background-accent: #ffffff;
+$primary-color: #1890ff;
+$text-color: #000000;
+$text-subtitle-color: rgba(0, 0, 0, 0.45);
+$border-color: #d9d9d9;
+
+// Размеры
+$border-radius: 8px;
+$box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+// Брейкпоинты
+$mobile-breakpoint: 768px;
+
+// Tag styles
+$tag-border-radius: 4px;
+$tag-padding-horizontal: 8px;
+$tag-padding-vertical: 1px;
+$tag-line-width: 1px;
+
+// Tag colors
+$tag-default-bg: rgba(0, 0, 0, 0.02);
+$tag-default-border: rgba(217, 217, 217, 1);
+$tag-error-bg: rgba(255, 242, 240, 1);
+$tag-error-color: rgba(255, 77, 79, 1);

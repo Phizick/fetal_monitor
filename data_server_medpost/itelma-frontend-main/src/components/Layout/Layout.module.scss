@@ -1,0 +1,50 @@
+@use '../../styles/variables.scss' as *;
+
+.layout {
+  min-height: 100vh;
+}
+
+.antLayout {
+  min-height: 100vh;
+}
+
+.siteLayout {
+  margin-left: 300px;
+  transition: margin-left 0.2s;
+}
+
+.siteLayout.collapsed {
+  margin-left: 0;
+}
+
+.content {
+  margin: 24px;
+  min-height: calc(100vh - 112px);
+  margin-top: 80px;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+@media (max-width: $mobile-breakpoint) {
+  .siteLayout {
+    margin-left: 0;
+  }
+
+  .siteLayout.collapsed {
+    margin-left: 0;
+  }
+
+  .content {
+    margin: 16px;
+    min-height: calc(100vh - 96px);
+    margin-top: 80px;
+  }
+}

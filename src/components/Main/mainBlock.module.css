@@ -1,0 +1,17 @@
+.main {
+    display: flex;
+    position: relative;
+    border-top: 1px solid var(--border-default);
+    box-sizing: border-box;
+    height: calc(100vh - 97px);
+}
+
+.main_button {
+    width: 164px;
+    background-color: var(--text-default);
+    color: var(--background-default);
+    border: none;
+    border-radius: 0;
+    height: 48px;
+    margin: auto;
+}

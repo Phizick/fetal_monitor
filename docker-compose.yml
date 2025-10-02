@@ -1,0 +1,45 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      platforms:
+        - linux/arm64
+        - linux/amd64
+    container_name: fetal-app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=fetal
+      - HOST=0.0.0.0
+      - PORT=8081
+      - TELEGRAM_BOT_TOKEN=8231116636:AAEzm1aDfPAo1yXY4Zmv6pjekIqnokk3afs
+    ports:
+      - "80:80"      # Frontend + Nginx
+      - "8081:8081"  # API (for direct access)
+    depends_on:
+      - mongo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo:
+    image: mongo:6
+    container_name: fetal-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mongo_data:
+
+

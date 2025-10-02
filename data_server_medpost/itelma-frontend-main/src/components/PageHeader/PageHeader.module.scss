@@ -1,0 +1,37 @@
+@use '../../styles/variables.scss' as *;
+
+.header {
+  background: $background-accent;
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+  padding: 24px;
+}
+
+.subtitle {
+  color: $text-subtitle-color;
+  margin-bottom: 0;
+}
+
+.backRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions { display: flex; gap: 8px; }
+
+.actionsMobile { display: none; margin-top: 8px; }
+
+@media (max-width: 768px) {
+  .actions { display: none; }
+  .actionsMobile { display: flex; gap: 8px; }
+}
+
+

@@ -1,0 +1,41 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.button {
+  cursor: pointer;
+  background-color: var(--background-default);
+  color: var(--text-default);
+  border: none;
+  border-radius: 0;
+  text-align: center;
+  font-family: var(--fontFamily);
+  font-size: var(--fontSize);
+  font-style: normal;
+  font-weight: var(--fontWeightNormal);
+  line-height: var(--lineHeight);
+  height: 48px;
+}
+
+.button:hover {
+  color: var(--background-default) !important;
+  background-color: var(--text-default) !important;
+  border: none;
+  border-radius: 0;
+}
+
+.button:hover svg path {
+  fill: var(--background-default) !important;
+  transition: fill 0.3s ease;
+}
+
+.active,
+.button:active {
+  color: var(--background-default) !important;
+  background-color: var(--text-default) !important;
+}

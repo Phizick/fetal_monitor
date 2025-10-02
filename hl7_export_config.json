@@ -1,0 +1,25 @@
+{
+  "export_configs": {
+    "default": {
+      "hl7v2": {
+        "version": "2.5",
+        "mllp": { "host": "localhost", "port": 2575, "tls": false },
+        "msh": {
+          "sending_app": "CTG_MONITOR",
+          "sending_facility": "FetalUnit",
+          "receiving_app": "MIS",
+          "receiving_facility": "Hospital",
+          "message_type": "ORU^R01",
+          "processing_id": "P",
+          "version_id": "2.5"
+        },
+        "codes": {
+          "fhr_loinc": "8867-4",
+          "uc_loinc": "11367-0"
+        }
+      }
+    }
+  }
+}
+
+

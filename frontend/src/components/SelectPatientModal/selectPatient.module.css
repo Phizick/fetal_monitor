@@ -1,0 +1,14 @@
+.modal {
+    background-color: var(--background-default);
+    border-radius: 0;
+    border: 1px solid var(--border-default);
+    position: absolute;
+    margin: 0 !important;
+    left: 0;
+    top: 48px
+}
+
+.form {
+    padding: 12px;
+    margin: 0 0 12px;
+}

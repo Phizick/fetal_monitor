@@ -1,0 +1,29 @@
+.modal {
+    background-color: var(--background-default);
+    border-radius: 0;
+    border: 1px solid var(--border-default);
+    position: absolute;
+    top: 48px;
+    right: 0;
+}
+
+.list_item {
+    padding: 12px !important;
+    border-bottom: 1px solid var(--border-default) !important;
+}
+
+.item_button {
+    border: none;
+}
+
+.add_button {
+    margin: 12px;
+    width: calc(100% - 24px);
+    background-color: var(--text-default);
+    color: var(--background-default);
+    border: none;
+    border-radius: 0;
+    height: 48px;
+    box-sizing: border-box;
+    box-shadow: none;
+}

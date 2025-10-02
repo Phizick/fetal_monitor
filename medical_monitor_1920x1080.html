@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Fetal Monitor - 1920x1080</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .medical-monitor {
+            width: 1920px;
+            height: 1080px;
+            display: flex;
+            background: #0a0a0a;
+            position: relative;
+        }
+
+        /* Сетка фона */
+        .medical-monitor::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 0, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .charts-section {
+            width: 1344px; /* 70% от 1920px */
+            height: 1080px;
+            display: flex;
+            flex-direction: column;
+            background: #0a0a0a;
+            border-right: 2px solid #333;
+            position: relative;
+            z-index: 2;
+        }
+
+        .chart-container {
+            height: 360px; /* 1080px / 3 */
+            position: relative;
+            background: #0a0a0a;
+            border-bottom: 1px solid #333;
+            padding: 0;
+        }
+
+        .chart-container:last-child {
+            border-bottom: none;
+        }
+
+        .chart-title {
+            position: absolute;
+            top: 15px;
+            left: 30px;
+            color: #00ff00;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 10;
+            text-shadow: 0 0 5px #00ff00;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .values-panel {
+            width: 576px; /* 30% от 1920px */
+            height: 1080px;
+            background: #111;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            border-left: 2px solid #333;
+            position: relative;
+            z-index: 2;
+        }
+
+        .parameter-group {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .parameter-title {
+            color: #00ff00;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        .parameter-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #ffffff;
+            text-align: center;
+            margin: 15px 0;
+            text-shadow: 0 0 15px currentColor;
+            font-family: 'Courier New', monospace;
+        }
+
+        .parameter-label {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .status-dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #ff0000;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #00ff00;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text {
+            color: #00ff00;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            z-index: 1000;
+            width: 200px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #00ff00;
+            font-size: 12px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 5px 8px;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+
+        .control-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 3px;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #00cc00;
+        }
+
+        .button.danger {
+            background: #ff0000;
+            color: #fff;
+        }
+
+        .button.danger:hover {
+            background: #cc0000;
+        }
+
+        /* Стили для Chart.js */
+        .chartjs-render-monitor {
+            animation: none !important;
+        }
+
+        /* Медицинская сетка */
+        .chart-grid-bg {
+            background-image: 
+                linear-gradient(rgba(0, 255, 0, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.15) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* Специальные цвета как на скриншоте */
+        .fhr1-color { color: #00ff00; }
+        .fhr2-color { color: #ff00ff; }
+        .toco-color { color: #00ffff; }
+        .fm-color { color: #ffaa00; }
+        .mibp-color { color: #ff00ff; }
+        .hr-color { color: #ffff00; }
+    </style>
+</head>
+<body>
+    <div class="medical-monitor">
+        <!-- Секция с графиками (70% ширины) -->
+        <div class="charts-section">
+            <!-- FHR график -->
+            <div class="chart-container chart-grid-bg">
+                <div class="chart-title">Fetal Heart Rate (FHR)</div>
+                <canvas id="fhr-chart" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- TOCO/FM график -->
+            <div class="chart-container chart-grid-bg">
+                <div class="chart-title">Tocodynamometry (TOCO) / Fetal Movement (FM)</div>
+                <canvas id="toco-chart" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- MIBP/HR/TEMP график -->
+            <div class="chart-container chart-grid-bg">
+                <div class="chart-title">Mean Invasive Blood Pressure (MIBP) / Heart Rate (HR) / Temperature (TEMP)</div>
+                <canvas id="vitals-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Панель значений (30% ширины) -->
+        <div class="values-panel">
+            <div class="status-indicator">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text" class="status-text">Подключение к API...</span>
+            </div>
+
+            <!-- FHR параметры -->
+            <div class="parameter-group">
+                <div class="parameter-title">FHR 1</div>
+                <div class="parameter-value fhr1-color" id="fhr1-value">0</div>
+                <div class="parameter-label">уд/мин</div>
+            </div>
+
+            <div class="parameter-group">
+                <div class="parameter-title">FHR 2</div>
+                <div class="parameter-value fhr2-color" id="fhr2-value">0</div>
+                <div class="parameter-label">уд/мин</div>
+            </div>
+
+            <!-- TOCO параметры -->
+            <div class="parameter-group">
+                <div class="parameter-title">TOCO (10)</div>
+                <div class="parameter-value toco-color" id="toco-value">0</div>
+                <div class="parameter-label">ед.</div>
+            </div>
+
+            <div class="parameter-group">
+                <div class="parameter-title">FM</div>
+                <div class="parameter-value fm-color" id="fm-value">0</div>
+                <div class="parameter-label">ед.</div>
+            </div>
+
+            <!-- Жизненные показатели -->
+            <div class="parameter-group">
+                <div class="parameter-title">MIBP мм.рт.ст</div>
+                <div class="parameter-value mibp-color" id="mibp-value">0</div>
+                <div class="parameter-label">мм.рт.ст</div>
+            </div>
+
+            <div class="parameter-group">
+                <div class="parameter-title">HR уд/мин</div>
+                <div class="parameter-value hr-color" id="hr-value">0</div>
+                <div class="parameter-label">уд/мин</div>
+            </div>
+
+            <div class="parameter-group">
+                <div class="parameter-title">TEMP °C</div>
+                <div class="parameter-value" id="temp-value">0</div>
+                <div class="parameter-label">°C</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Панель управления -->
+    <div class="controls">
+        <div class="control-group">
+            <label>API URL:</label>
+            <input type="text" id="api-url" value="http://localhost:8081">
+        </div>
+        
+        <div class="control-group">
+            <label>Окно (сек):</label>
+            <input type="number" id="window-size" value="15" min="5" max="60">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="enable-smoothing" checked>
+                Сглаживание
+            </label>
+        </div>
+        
+        <button id="connect-btn" class="button">Подключить</button>
+        <button id="disconnect-btn" class="button danger">Отключить</button>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let charts = {};
+        let eventSource = null;
+        let isConnected = false;
+        let data = {
+            fhr1: [],
+            fhr2: [],
+            toco: [],
+            fm: [],
+            mibp: [],
+            hr: []
+        };
+        let startTime = null;
+        let windowSize = 15;
+
+        // Инициализация Chart.js с точными настройками как на скриншоте
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: {
+                                second: 'HH:mm:ss'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 255, 0, 0.3)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            color: '#00ff00',
+                            font: { size: 12, family: 'Arial' },
+                            maxTicksLimit: 10
+                        },
+                        border: {
+                            color: '#00ff00',
+                            width: 1
+                        }
+                    },
+                    y: {
+                        min: 30,
+                        max: 240,
+                        grid: {
+                            color: 'rgba(0, 255, 0, 0.3)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            color: '#00ff00',
+                            font: { size: 12, family: 'Arial' },
+                            stepSize: 30,
+                            callback: function(value) {
+                                return value;
+                            }
+                        },
+                        border: {
+                            color: '#00ff00',
+                            width: 1
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0,
+                        hoverRadius: 3
+                    },
+                    line: {
+                        tension: 0.4,
+                        borderWidth: 2
+                    }
+                },
+                animation: {
+                    duration: 0
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                devicePixelRatio: 1
+            };
+
+            // FHR график - зеленый и розовый линии
+            const fhrCtx = document.getElementById('fhr-chart').getContext('2d');
+            charts.fhr = new Chart(fhrCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'FHR 1',
+                            data: [],
+                            borderColor: '#00ff00',
+                            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'FHR 2',
+                            data: [],
+                            borderColor: '#ff00ff',
+                            backgroundColor: 'rgba(255, 0, 255, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: {
+                            ...commonOptions.scales.y,
+                            title: {
+                                display: true,
+                                text: '30-240',
+                                color: '#00ff00',
+                                font: { size: 12, family: 'Arial' }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // TOCO/FM график - голубой и оранжевый линии
+            const tocoCtx = document.getElementById('toco-chart').getContext('2d');
+            charts.toco = new Chart(tocoCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'TOCO',
+                            data: [],
+                            borderColor: '#00ffff',
+                            backgroundColor: 'rgba(0, 255, 255, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'FM',
+                            data: [],
+                            borderColor: '#ffaa00',
+                            backgroundColor: 'rgba(255, 170, 0, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: {
+                            ...commonOptions.scales.y,
+                            title: {
+                                display: true,
+                                text: '30-240',
+                                color: '#00ff00',
+                                font: { size: 12, family: 'Arial' }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Vitals график - розовый и желтый линии
+            const vitalsCtx = document.getElementById('vitals-chart').getContext('2d');
+            charts.vitals = new Chart(vitalsCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'MIBP',
+                            data: [],
+                            borderColor: '#ff00ff',
+                            backgroundColor: 'rgba(255, 0, 255, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'HR',
+                            data: [],
+                            borderColor: '#ffff00',
+                            backgroundColor: 'rgba(255, 255, 0, 0.1)',
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: {
+                            ...commonOptions.scales.y,
+                            title: {
+                                display: true,
+                                text: '30-240',
+                                color: '#00ff00',
+                                font: { size: 12, family: 'Arial' }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Обновление данных с оптимизацией
+        let updateCounter = 0;
+        const UPDATE_FREQUENCY = 3; // Обновляем каждый 3-й кадр
+        let lastUpdateTime = 0;
+        const MIN_UPDATE_INTERVAL = 100; // Минимум 100мс между обновлениями
+        
+        function updateData(newData) {
+            const now = Date.now();
+            if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) return;
+            
+            updateCounter++;
+            if (updateCounter % UPDATE_FREQUENCY !== 0) return;
+            
+            lastUpdateTime = now;
+            
+            const windowMs = windowSize * 1000;
+            
+            // Добавляем новые данные с правильным масштабированием
+            const newFhrPoint = { x: now, y: newData.fhr_bpm };
+            const newTocoPoint = { x: now, y: 60 + (newData.uc_mmHg / 100) * 120 };
+            const newFmPoint = { x: now, y: 190 + Math.sin(now / 1000) * 10 };
+            const newMibpPoint = { x: now, y: 210 + Math.sin(now / 2000) * 5 };
+            const newHrPoint = { x: now, y: 100 + Math.sin(now / 1500) * 20 };
+            
+            data.fhr1.push(newFhrPoint);
+            data.fhr2.push({ x: now, y: newData.fhr_bpm + Math.sin(now / 1000) * 5 });
+            data.toco.push(newTocoPoint);
+            data.fm.push(newFmPoint);
+            data.mibp.push(newMibpPoint);
+            data.hr.push(newHrPoint);
+            
+            // Удаляем старые данные (скользящее окно)
+            Object.keys(data).forEach(key => {
+                data[key] = data[key].filter(point => now - point.x <= windowMs);
+            });
+            
+            // Обновляем графики только если есть изменения
+            if (data.fhr1.length > 0) {
+                charts.fhr.data.datasets[0].data = [...data.fhr1];
+                charts.fhr.data.datasets[1].data = [...data.fhr2];
+                charts.toco.data.datasets[0].data = [...data.toco];
+                charts.toco.data.datasets[1].data = [...data.fm];
+                charts.vitals.data.datasets[0].data = [...data.mibp];
+                charts.vitals.data.datasets[1].data = [...data.hr];
+                
+                // Обновляем без анимации
+                charts.fhr.update('none');
+                charts.toco.update('none');
+                charts.vitals.update('none');
+            }
+            
+            // Обновляем значения
+            updateValues(newData);
+        }
+
+        // Обновление значений
+        function updateValues(data) {
+            document.getElementById('fhr1-value').textContent = Math.round(data.fhr_bpm);
+            document.getElementById('fhr2-value').textContent = Math.round(data.fhr_bpm + Math.sin(Date.now() / 1000) * 5);
+            document.getElementById('toco-value').textContent = Math.round(60 + (data.uc_mmHg / 100) * 120);
+            document.getElementById('fm-value').textContent = Math.round(190 + Math.sin(Date.now() / 1000) * 10);
+            document.getElementById('mibp-value').textContent = Math.round(210 + Math.sin(Date.now() / 2000) * 5);
+            document.getElementById('hr-value').textContent = Math.round(100 + Math.sin(Date.now() / 1500) * 20);
+            document.getElementById('temp-value').textContent = '36.5';
+        }
+
+        // Подключение к API
+        function connectToAPI() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            const apiUrl = document.getElementById('api-url').value;
+            eventSource = new EventSource(`${apiUrl}/stream/sse`);
+            
+            eventSource.onopen = () => {
+                console.log('Подключено к потоку данных');
+                isConnected = true;
+                startTime = Date.now();
+                updateStatus();
+            };
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateData(data);
+                } catch (error) {
+                    console.error('Ошибка парсинга данных:', error);
+                }
+            };
+            
+            eventSource.onerror = (error) => {
+                console.error('Ошибка соединения:', error);
+                isConnected = false;
+                updateStatus();
+                
+                setTimeout(() => {
+                    if (!isConnected) {
+                        connectToAPI();
+                    }
+                }, 5000);
+            };
+        }
+
+        // Отключение от API
+        function disconnectFromAPI() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            isConnected = false;
+            updateStatus();
+        }
+
+        // Обновление статуса
+        function updateStatus() {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            
+            if (isConnected) {
+                dot.classList.add('connected');
+                text.textContent = 'ПОДКЛЮЧЕНО';
+            } else {
+                dot.classList.remove('connected');
+                text.textContent = 'ПОДКЛЮЧЕНИЕ...';
+            }
+        }
+
+        // Обновление настроек
+        function updateSettings() {
+            windowSize = parseInt(document.getElementById('window-size').value);
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            
+            document.getElementById('connect-btn').addEventListener('click', () => {
+                updateSettings();
+                connectToAPI();
+            });
+            
+            document.getElementById('disconnect-btn').addEventListener('click', disconnectFromAPI);
+            
+            // Автоматическое подключение
+            setTimeout(() => {
+                connectToAPI();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
