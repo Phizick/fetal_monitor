@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
       platforms:
         - linux/arm64
         - linux/amd64
@@ -12,7 +12,7 @@ services:
       - MONGO_DB=fetal
       - HOST=0.0.0.0
       - PORT=8081
-      - TELEGRAM_BOT_TOKEN=8231116636:AAEzm1aDfPAo1yXY4Zmv6pjekIqnokk3afs
+      - TELEGRAM_BOT_TOKEN=8231116636:AAGT2sXLc6yanLcqO0QlpmA2bCLMIJFyFc8
     ports:
       - "80:80"      # Frontend + Nginx
       - "8081:8081"  # API (for direct access)

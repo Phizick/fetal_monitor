@@ -21,7 +21,10 @@ class TelegramBot:
     
     def __init__(self, bot_token: str):
         self.bot_token = bot_token
-        self.base_url = f"https://api.telegram.org/bot{bot_token}"
+        if bot_token:
+            self.base_url = f"https://api.telegram.org/bot{bot_token}"
+        else:
+            self.base_url = None
         self.chat_ids: List[str] = []  # Список ID чатов врачей
         self.listening_mode: Dict[str, bool] = {}  # Режим слушания для каждого врача
         self._polling_task: Optional[asyncio.Task] = None
@@ -29,6 +32,9 @@ class TelegramBot:
         
     async def send_message(self, chat_id: str, text: str) -> bool:
         """Отправляет сообщение в Telegram"""
+        if not self.base_url:
+            print("❌ Telegram бот отключен (токен не задан)")
+            return False
         try:
             url = f"{self.base_url}/sendMessage"
             data = {
@@ -69,6 +75,10 @@ class TelegramBot:
         if chat_id not in self.chat_ids:
             self.chat_ids.append(chat_id)
             logger.info(f"Добавлен врач с chat_id: {chat_id}")
+            print(f"✅ Врач {chat_id} добавлен в систему")
+        else:
+            logger.info(f"Врач {chat_id} уже зарегистрирован")
+            print(f"ℹ️ Врач {chat_id} уже зарегистрирован")
     
     def remove_doctor(self, chat_id: str):
         """Удаляет врача из списка получателей уведомлений"""
@@ -80,6 +90,7 @@ class TelegramBot:
         """Включает режим слушания для врача"""
         self.listening_mode[chat_id] = True
         logger.info(f"Включен режим слушания для врача {chat_id}")
+        print(f"👂 Врач {chat_id} включил режим слушания")
     
     def stop_listening(self, chat_id: str):
         """Выключает режим слушания для врача"""
@@ -92,16 +103,38 @@ class TelegramBot:
     
     async def send_to_listening_doctors(self, text: str) -> int:
         """Отправляет сообщение только врачам в режиме слушания"""
+        logger.info(f"Отправка уведомления: {text[:50]}...")
+        logger.info(f"Зарегистрированных врачей: {len(self.chat_ids)}")
+        logger.info(f"Список врачей: {self.chat_ids}")
+        print(f"🔍 send_to_listening_doctors: chat_ids={self.chat_ids}")
+        print(f"🔍 send_to_listening_doctors: listening_mode={self.listening_mode}")
+        
         if not self.chat_ids:
             logger.warning("Нет зарегистрированных врачей")
+            print("❌ Нет зарегистрированных врачей")
             return 0
             
         success_count = 0
+        listening_count = 0
         for chat_id in self.chat_ids:
-            if self.is_listening(chat_id):
+            is_listening = self.is_listening(chat_id)
+            print(f"🔍 Врач {chat_id}: is_listening={is_listening}")
+            if is_listening:
+                listening_count += 1
+                logger.info(f"Отправка врачу {chat_id}")
+                print(f"📤 Отправка врачу {chat_id}")
                 if await self.send_message(chat_id, text):
                     success_count += 1
+                    logger.info(f"Успешно отправлено врачу {chat_id}")
+                    print(f"✅ Успешно отправлено врачу {chat_id}")
+                else:
+                    logger.error(f"Ошибка отправки врачу {chat_id}")
+                    print(f"❌ Ошибка отправки врачу {chat_id}")
+            else:
+                print(f"⏸️ Врач {chat_id} не в режиме слушания")
                     
+        logger.info(f"Отправлено {success_count} из {listening_count} слушающих врачей")
+        print(f"📊 Итого: отправлено {success_count} из {listening_count} слушающих врачей")
         return success_count
 
     async def _fetch_updates(self, timeout: int = 30) -> List[Dict]:
@@ -125,56 +158,97 @@ class TelegramBot:
     async def _handle_update(self, upd: Dict):
         """Обрабатывает одно обновление Telegram."""
         try:
+            print(f"🔍 Получено обновление: {upd}")
+            logger.info(f"Получено обновление: {upd}")
+            
             update_id = upd.get("update_id")
             if update_id is not None:
                 self._update_offset = update_id + 1
 
             message = upd.get("message") or upd.get("edited_message") or {}
             if not message:
+                print("❌ Нет сообщения в обновлении")
                 return
             chat = message.get("chat", {})
             chat_id = str(chat.get("id")) if chat.get("id") is not None else None
             text = (message.get("text") or "").strip().lower()
+            
+            print(f"🔍 Chat ID: {chat_id}, Text: '{text}'")
+            logger.info(f"Chat ID: {chat_id}, Text: '{text}'")
+            
             if not chat_id:
+                print("❌ Пустой chat_id, пропускаем обновление")
                 return
 
             # Поддерживаем команды /start, /stop, а также русские кнопки "старт"/"стоп"
             if text in ("/start", "старт", "start"):
+                print(f"🚀 Врач {chat_id} нажал /start")
+                logger.info(f"Врач {chat_id} нажал /start")
+                
+                print(f"🔍 До add_doctor: chat_ids={self.chat_ids}, listening_mode={self.listening_mode}")
                 self.add_doctor(chat_id)
+                print(f"🔍 После add_doctor: chat_ids={self.chat_ids}")
+                
+                print(f"🔍 До start_listening: listening_mode={self.listening_mode}")
                 self.start_listening(chat_id)
+                print(f"🔍 После start_listening: listening_mode={self.listening_mode}")
+                
                 await self.send_message(chat_id, "Бот слушает. Вы будете получать уведомления о мониторинге пациенток.")
                 logger.info(f"Врач {chat_id} активировал режим слушания через /start")
+                print(f"✅ Врач {chat_id} зарегистрирован и слушает")
             elif text in ("/stop", "стоп", "stop"):
+                print(f"🛑 Врач {chat_id} нажал /stop")
+                logger.info(f"Врач {chat_id} нажал /stop")
                 self.stop_listening(chat_id)
                 await self.send_message(chat_id, "Режим слушания выключен. Уведомления больше не будут приходить.")
                 logger.info(f"Врач {chat_id} выключил режим слушания через /stop")
             else:
+                print(f"❓ Неизвестная команда от {chat_id}: '{text}'")
+                logger.info(f"Неизвестная команда от {chat_id}: '{text}'")
                 # Небольшая справка
                 if text.startswith("/help"):
                     await self.send_message(chat_id, "Команды:\n/start — включить уведомления\n/stop — выключить уведомления")
         except Exception as e:
             logger.error(f"Ошибка обработки обновления: {e}")
+            print(f"❌ Ошибка обработки обновления: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def start_polling(self):
         """Запускает фоновый long-polling Telegram бота."""
+        if not self.base_url:
+            print("❌ Telegram бот отключен (токен не задан)")
+            return
+            
+        logger.info("Запуск start_polling...")
+        
         if self._polling_task and not self._polling_task.done():
+            logger.info("Polling уже запущен, пропускаем")
             return
 
         async def _runner():
             logger.info("Старт long-polling Telegram бота...")
+            print("🔄 Long-polling запущен!")
             while True:
                 try:
                     updates = await self._fetch_updates(timeout=30)
+                    if updates:
+                        logger.info(f"Получено {len(updates)} обновлений")
                     for upd in updates:
                         await self._handle_update(upd)
                 except asyncio.CancelledError:
+                    logger.info("Polling отменен")
                     break
                 except Exception as e:
                     logger.error(f"Ошибка в цикле long-polling: {e}")
+                    print(f"❌ Ошибка polling: {e}")
                     await asyncio.sleep(2)
             logger.info("Остановлен long-polling Telegram бота")
 
+        logger.info("Создание задачи polling...")
         self._polling_task = asyncio.create_task(_runner())
+        logger.info("Задача polling создана")
+        print("✅ Polling задача создана!")
 
     async def stop_polling(self):
         """Останавливает фоновый long-polling."""
@@ -193,13 +267,21 @@ class PatientNotificationSystem:
         self.bot = bot
         self.patient_status: Dict[str, Dict] = {}  # Состояние каждой пациентки
         self.monitoring_tasks: Dict[str, asyncio.Task] = {}  # Задачи мониторинга
+        
         # Базовый URL стрима (жестко задан по запросу)
         self.stream_base_url: str = "http://176.108.250.117:8081"
-        # Счетчики для назначения палат/родзалов по очереди
+        
+        # Инициализируем счетчики для назначения палат/родзалов
         self._room_sequence: int = 0
         self._palata_idx: int = 1
         self._rodzal_idx: int = 1
         self._max_idx: int = 6
+    
+    async def start(self):
+        """Запускает систему уведомлений"""
+        logger.info("🚀 Система уведомлений запущена")
+        logger.info(f"🌐 Stream URL настроен: {self.stream_base_url}")
+        return True
         
     def _assign_room(self, patient_id: str) -> str:
         """Назначает по очереди: первой пациентке — Палата, второй — Родзал, далее по кругу. Номера 1..6."""
@@ -378,14 +460,27 @@ class PatientNotificationSystem:
         self.patient_status[patient_id]["last_status_check"] = datetime.now(timezone.utc)
 
 # Глобальный экземпляр бота
-BOT_TOKEN = "8231116636:AAEzm1aDfPAo1yXY4Zmv6pjekIqnokk3afs"
+# BOT_TOKEN = "8231116636:AAGT2sXLc6yanLcqO0QlpmA2bCLMIJFyFc8"  # Закомментировано для отладки
+BOT_TOKEN = None
 telegram_bot = TelegramBot(BOT_TOKEN)
 notification_system = PatientNotificationSystem(telegram_bot)
 
 # Функции для интеграции с основным API
 async def notify_monitoring_start(patient_id: str, patient_name: str):
     """Уведомление о начале мониторинга"""
-    await notification_system.start_monitoring_notification(patient_id, patient_name)
+    logger.info(f"🔔 Уведомление о начале мониторинга: {patient_name} (ID: {patient_id})")
+    print(f"🔔 Уведомление о начале мониторинга: {patient_name} (ID: {patient_id})")
+    print(f"🔍 Текущие врачи в боте: {telegram_bot.chat_ids}")
+    print(f"🔍 Режимы слушания: {telegram_bot.listening_mode}")
+    try:
+        await notification_system.start_monitoring_notification(patient_id, patient_name)
+        logger.info("✅ Уведомление о начале мониторинга отправлено")
+        print("✅ Уведомление о начале мониторинга отправлено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка отправки уведомления о начале мониторинга: {e}")
+        print(f"❌ Ошибка отправки уведомления о начале мониторинга: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def notify_monitoring_stop(patient_id: str, patient_name: str):
     """Уведомление об остановке мониторинга"""

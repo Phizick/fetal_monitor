@@ -1,0 +1,24 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.arm64
+      platforms:
+        - linux/arm64
+    container_name: fetal-app
+    environment:
+      - MONGO_URI=mongodb://localhost:27017
+      - MONGO_DB=fetal
+      - HOST=0.0.0.0
+      - PORT=8081
+      - TELEGRAM_BOT_TOKEN=8231116636:AAGT2sXLc6yanLcqO0QlpmA2bCLMIJFyFc8
+    ports:
+      - "80:80"      # Frontend + Nginx
+      - "8081:8081"  # API (for direct access)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

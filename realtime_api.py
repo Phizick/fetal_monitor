@@ -171,10 +171,15 @@ class CTGSimulator:
             self._decel_until_ms = t_ms + self.random.randint(10000, 25000)
 
     def _uc_value(self, t_ms: int) -> float:
-        # Плавная волна схваток: базовый тонус + синусоида + редкие пики
+        # Плавная волна схваток: базовый тонус + синусоида + редкие пики (как было изначально)
         t = t_ms / 1000.0
         phase = 2 * math.pi * (t % self.uc_period_sec) / self.uc_period_sec
         wave = (math.sin(phase) + 1) / 2  # 0..1
+        
+        # Делаем пик более плавным и длинным (10-20 сек)
+        if wave > 0.8:  # Если мы в области пика
+            wave = 0.8 + (wave - 0.8) * 0.2  # Сглаживаем пик
+        
         value = self.uc_base + wave * (self.uc_peak - self.uc_base)
         # небольшой белый шум
         value += self.np_random.normal(0.0, 1.0)
@@ -198,17 +203,17 @@ class CTGSimulator:
         # Форсируем эпизод патологии в первые 10 секунд
         if t_ms < 10_000:
             raw -= 25.0  # опускаем ЧСС ниже порога, чтобы триггернуть гипоксию
-        # Эффекты препаратов на FHR
+        # СИЛЬНЫЕ эффекты препаратов на FHR
         if 'ginipral' in self.active_medications:
-            # Возможна умеренная тахикардия
-            raw += 3.0
+            # Умеренная тахикардия
+            raw += 8.0
         if 'magnesium' in self.active_medications:
-            # Лёгкая брадикардия/снижение вариабельности
-            raw -= 2.0
-            self.variability_bpm = max(2.0, self.variability_bpm * 0.85)
+            # Заметная брадикардия и снижение вариабельности
+            raw -= 6.0
+            self.variability_bpm = max(1.5, self.variability_bpm * 0.7)
         if 'oxytocin' in self.active_medications:
-            # Незначительное влияние на FHR напрямую, оставим без изменения
-            pass
+            # Небольшое снижение FHR при схватках
+            raw -= 2.0
 
         accel = t_ms < self._accel_until_ms
         decel = t_ms < self._decel_until_ms
@@ -294,14 +299,16 @@ class CTGSimulator:
                 "t_ms": t_ms,
                 "fhr_bpm": fhr,
                 "uc_mmHg": round(uc, 2),
-                "baseline_bpm": self.baseline_bpm,
-                "variability_bpm": round(self.variability_bpm, 2),
+                "baseline_bpm": int(self.baseline_bpm + 1.5 * math.sin(t_ms / 5000.0) + self.np_random.normal(0, 1.0)),
+                "variability_bpm": round(self.variability_bpm + 0.5 * math.sin(t_ms / 3000.0) + self.np_random.normal(0, 0.8), 2),
                 "accel": accel,
                 "decel": decel,
                 "pathology": hypoxia,
                 "pathology_desc": primary_desc,
                 "pathologies": pathologies,
                 "medications": self.active_medications,
+                # Имитация ЧСС матери ~85 bpm с реалистичной вариабельностью
+                "mhr_bpm": int(85 + 2 * math.sin(t_ms / 2000.0) + self.np_random.normal(0, 2.5))
             }
             yield sample
             await asyncio.sleep(max(0.0, interval_ms / 1000.0))
@@ -327,38 +334,79 @@ class CTGSimulator:
             "t_ms": t_ms,
             "fhr_bpm": fhr,
             "uc_mmHg": round(uc, 2),
-            "baseline_bpm": self.baseline_bpm,
-            "variability_bpm": round(self.variability_bpm, 2),
+            "baseline_bpm": int(self.baseline_bpm + 1.5 * math.sin(t_ms / 5000.0) + self.np_random.normal(0, 1.0)),
+            "variability_bpm": round(self.variability_bpm + 0.5 * math.sin(t_ms / 3000.0) + self.np_random.normal(0, 0.8), 2),
             "accel": accel,
             "decel": decel,
             "pathology": hypoxia,
             "pathology_desc": primary_desc,
             "pathologies": pathologies,
             "medications": self.active_medications,
+            # Имитация ЧСС матери ~85 bpm с реалистичной вариабельностью
+            "mhr_bpm": int(85 + 2 * math.sin(t_ms / 2000.0) + self.np_random.normal(0, 2.5))
         }
 
 
 app = FastAPI(
-    title="Realtime CTG/UC Simulator",
-    version="0.2.0",
+    title="Fetal Monitoring System API",
+    version="1.0.0",
     description=(
-        "API для эмуляции КТГ (FHR) и сократительной активности матки (UC).\n\n"
-        "Основные эндпоинты:\n"
-        "- GET /health — проверка сервера.\n"
-        "- GET /sample — один JSON-сэмпл, удобно тестировать в Swagger.\n"
-        "- GET /stream/ndjson — непрерывный поток NDJSON (application/x-ndjson).\n"
-        "- GET /stream/sse — поток Server-Sent Events (text/event-stream).\n"
-        "- GET /viewer — встроенный просмотрщик графиков (Plotly + SSE).\n\n"
-        "Управление пациентками:\n"
-        "- GET /patients — получить всех пациенток.\n"
-        "- POST /patients — создать новую пациентку.\n"
-        "- GET /patients/{id} — получить пациентку по ID.\n"
-        "- PUT /sim/medications/{id} — установить препараты для пациентки.\n\n"
-        "Как подключаться на фронте:\n"
-        "- NDJSON: читать построчно, каждую строку парсить как JSON для актуализации графиков.\n"
-        "- SSE: использовать EventSource и обрабатывать e.data как JSON-строку.\n"
-        "Обе схемы подходят для живой отрисовки КТГ/UC."
+        "Система мониторинга плода с машинным обучением и интеграцией МИС.\n\n"
+        "**Основные возможности:**\n"
+        "- Реальное время мониторинг КТГ и сократительной активности матки\n"
+        "- ML-анализ и прогнозирование патологий\n"
+        "- Управление пациентами и медикаментами\n"
+        "- Интеграция с внешними системами мониторинга\n"
+        "- Экспорт в FHIR R4, HL7 v2.5, DICOM 3.0\n"
+        "- Telegram уведомления для медицинского персонала\n\n"
+        "**Технологии:**\n"
+        "- FastAPI + MongoDB + ML (scikit-learn/ONNX)\n"
+        "- Server-Sent Events для потоков данных\n"
+        "- Docker контейнеризация\n"
+        "- ARM64/x86_64 поддержка"
     ),
+    tags_metadata=[
+        {
+            "name": "Health",
+            "description": "Проверка состояния системы и диагностика"
+        },
+        {
+            "name": "Data Streams", 
+            "description": "Потоки данных в реальном времени (SSE, NDJSON)"
+        },
+        {
+            "name": "Patients",
+            "description": "Управление пациентами и их данными"
+        },
+        {
+            "name": "Monitoring",
+            "description": "Запуск и остановка мониторинга"
+        },
+        {
+            "name": "Medications",
+            "description": "Управление медикаментами и их эффектами"
+        },
+        {
+            "name": "ML Analysis",
+            "description": "Машинное обучение и прогнозирование патологий"
+        },
+        {
+            "name": "Telegram Bot",
+            "description": "Уведомления через Telegram бота"
+        },
+        {
+            "name": "FHIR Export",
+            "description": "Экспорт данных в формате FHIR R4"
+        },
+        {
+            "name": "HL7 Export", 
+            "description": "Экспорт данных в формате HL7 v2.5"
+        },
+        {
+            "name": "Viewer",
+            "description": "Встроенные веб-интерфейсы для просмотра данных"
+        }
+    ]
 )
 # Глобальный симулятор для общих потоков
 sim = CTGSimulator()
@@ -444,9 +492,15 @@ async def get_patient_simulator(patient_id: str, medications: List[str] = None) 
 # CORS для SSE и API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # в проде лучше указать конкретные домены
+    allow_origins=[
+        "http://localhost:3000",  # React dev server
+        "http://localhost:80",    # Production frontend
+        "http://77.246.158.103",  # Old production server
+        "http://176.108.250.117", # New production server
+        "*"  # Fallback для других доменов
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -460,12 +514,12 @@ AUTH_TOKEN = "monitor_secret_key_123"
 
 # Персональные роуты для пациентов (заранее созданные)
 PATIENT_STREAMS = {
-    "stream_001": "http://77.246.158.103:8081/stream/patient/001",
-    "stream_002": "http://77.246.158.103:8081/stream/patient/002", 
-    "stream_003": "http://77.246.158.103:8081/stream/patient/003",
-    "stream_004": "http://77.246.158.103:8081/stream/patient/004",
-    "stream_005": "http://77.246.158.103:8081/stream/patient/005",
-    "stream_006": "http://77.246.158.103:8081/stream/patient/006"
+    "stream_001": "http://176.108.250.117:8081/stream/patient/001",
+    "stream_002": "http://176.108.250.117:8081/stream/patient/002", 
+    "stream_003": "http://176.108.250.117:8081/stream/patient/003",
+    "stream_004": "http://176.108.250.117:8081/stream/patient/004",
+    "stream_005": "http://176.108.250.117:8081/stream/patient/005",
+    "stream_006": "http://176.108.250.117:8081/stream/patient/006"
 }
 
 
@@ -600,7 +654,7 @@ async def start_monitoring_session(patient_id: str, monitoring_token: str) -> Op
         request_data = {
             "monitorId": f"monitor_{patient_id}",
             "monitoringToken": monitoring_token,
-            "link": f"http://77.246.158.103:8081{stream_route}",
+            "link": f"http://176.108.250.117:8081{stream_route}",
             "authToken": AUTH_TOKEN
         }
         
@@ -688,8 +742,18 @@ async def on_startup():
             print(f"[DEBUG] Mongo init error: {e}. Continuing without Mongo.")
             mongo_client = None
             mongo_db = None
-    # Telegram long-polling временно отключён
-    pass
+    
+    # Запускаем Telegram бота в том же процессе
+    print("🤖 Запуск Telegram бота...")
+    try:
+        from telegram_bot import telegram_bot, notification_system
+        await telegram_bot.start_polling()
+        await notification_system.start()
+        print("✅ Telegram бот запущен в API процессе")
+    except Exception as e:
+        print(f"❌ Ошибка запуска Telegram бота: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @app.on_event("shutdown")
@@ -705,6 +769,7 @@ async def on_shutdown():
     "/health",
     summary="Проверка сервера",
     description="Возвращает статус работы сервиса. Используется для health checks.",
+    tags=["Health"]
 )
 def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -717,6 +782,7 @@ def health() -> Dict[str, str]:
     description=(
         "Создает запись пациентки в БД (MongoDB). Поля: full_name, medications (опционально)."
     ),
+    tags=["Patients"]
 )
 async def create_patient(payload: PatientCreate) -> PatientOut:
     if mongo_db is None:
@@ -766,6 +832,7 @@ async def create_patient(payload: PatientCreate) -> PatientOut:
     response_model=List[PatientOut],
     summary="Получить всех пациенток",
     description="Возвращает список всех пациенток из базы данных.",
+    tags=["Patients"]
 )
 async def get_all_patients() -> List[PatientOut]:
     if mongo_db is None:
@@ -790,6 +857,7 @@ async def get_all_patients() -> List[PatientOut]:
     response_model=PatientOut,
     summary="Получить пациентку по ID",
     description="Возвращает данные пациентки по ObjectId.",
+    tags=["Patients"]
 )
 async def get_patient(patient_id: str = Path(..., description="Mongo ObjectId")) -> PatientOut:
     if mongo_db is None:
@@ -856,6 +924,7 @@ async def add_records(patient_id: str, payload: RecordsIn):
         "Возвращает один момент времени с полями: timestamp, t_ms, fhr_bpm, uc_mmHg, "
         "baseline_bpm, variability_bpm, accel, decel. Удобно для проверки схемы данных."
     ),
+    tags=["Data Streams"]
 )
 def get_sample() -> CTGSample:
     return CTGSample(**sim.sample())
@@ -871,6 +940,7 @@ def get_sample() -> CTGSample:
         "curl -N http://127.0.0.1:8000/stream/ndjson\n\n"
         "Пример в браузере (Fetch + ReadableStream): см. описание в README."
     ),
+    tags=["Data Streams"]
 )
 async def stream_ndjson():
     async def generator():
@@ -889,6 +959,7 @@ async def stream_ndjson():
         "const es = new EventSource('http://127.0.0.1:8000/stream/sse');\n"
         "es.onmessage = (e) => console.log(JSON.parse(e.data));"
     ),
+    tags=["Data Streams"]
 )
 async def stream_sse():
     async def generator():
@@ -905,6 +976,7 @@ async def stream_sse():
         "Эмулирует поток данных из CSV и добавляет предсказания модели. "
         "Удобно для проверки работы ML на потоке независимо от симулятора КТГ."
     ),
+    tags=["Data Streams", "ML Analysis"]
 )
 async def stream_ml_sse():
     async def generator():
@@ -933,6 +1005,7 @@ async def stream_ml_sse():
     "/ml/diagnostics",
     summary="Диагностика ML-инференса",
     description="Показывает провайдер инференса (onnx/sklearn), вход ONNX-модели и загруженные forecast-модели",
+    tags=["ML Analysis"]
 )
 def ml_diagnostics():
     try:
@@ -945,7 +1018,8 @@ def ml_diagnostics():
 @app.post(
     "/monitoring/start/{patient_id}",
     summary="Запустить мониторинг пациента",
-    description="Запускает сессию мониторинга для указанного пациента"
+    description="Запускает сессию мониторинга для указанного пациента",
+    tags=["Monitoring"]
 )
 async def start_monitoring(patient_id: str = Path(..., description="ID пациента")):
     try:
@@ -1009,7 +1083,8 @@ async def start_monitoring(patient_id: str = Path(..., description="ID паци�
 @app.post(
     "/monitoring/stop/{patient_id}",
     summary="Остановить мониторинг пациента",
-    description="Останавливает сессию мониторинга для указанного пациента"
+    description="Останавливает сессию мониторинга для указанного пациента",
+    tags=["Monitoring"]
 )
 async def stop_monitoring(patient_id: str = Path(..., description="ID пациента")):
     if mongo_db is None:
@@ -1071,7 +1146,8 @@ async def stop_monitoring(patient_id: str = Path(..., description="ID пацие
 @app.get(
     "/stream/patient/001",
     summary="Поток данных для пациента 001",
-    description="Server-Sent Events поток для конкретного пациента (с ML)"
+    description="Server-Sent Events поток для конкретного пациента (с ML)",
+    tags=["Data Streams", "ML Analysis"]
 )
 async def stream_patient_001():
     async def generator():
@@ -1104,7 +1180,8 @@ async def stream_patient_001():
 @app.get(
     "/stream/patient/002",
     summary="Поток данных для пациента 002",
-    description="Server-Sent Events поток для конкретного пациента (с ML)"
+    description="Server-Sent Events поток для конкретного пациента (с ML)",
+    tags=["Data Streams", "ML Analysis"]
 )
 async def stream_patient_002():
     async def generator():
@@ -1172,7 +1249,8 @@ async def stream_patient_006():
 @app.get(
     "/stream/patient/{patient_id}",
     summary="Универсальный поток данных для пациента",
-    description="Server-Sent Events поток для любого пациента по ID"
+    description="Server-Sent Events поток для любого пациента по ID",
+    tags=["Data Streams", "ML Analysis"]
 )
 async def stream_patient_universal(patient_id: str = Path(..., description="ID пациента")):
     async def generator():
@@ -1202,6 +1280,7 @@ async def stream_patient_universal(patient_id: str = Path(..., description="ID �
     "/sim/medications/{patient_id}",
     summary="Установить препараты для конкретной пациентки",
     description="Устанавливает активные препараты для конкретной пациентки и обновляет их в БД.",
+    tags=["Medications"]
 )
 async def set_patient_medications(
     patient_id: str = Path(..., description="Mongo ObjectId пациентки"),
@@ -1247,7 +1326,8 @@ async def set_patient_medications(
     "/sim/medications",
     summary="Установить препараты для симулятора (legacy)",
     description="Устанавливает активные препараты для симулятора. Принимает список названий препаратов. DEPRECATED: используйте PUT /sim/medications/{patient_id}",
-    deprecated=True
+    deprecated=True,
+    tags=["Medications"]
 )
 async def set_medications_legacy(payload: SimulatorMedications):
     sim.active_medications = [m.strip() for m in payload.medications if m and m.strip()]
@@ -1267,6 +1347,7 @@ def create_app() -> FastAPI:
         "HTML-страница с двумя графиками (FHR и UC), подписанными на /stream/sse. "
         "Показывает скользящее окно последних ~15 секунд."
     ),
+    tags=["Viewer"]
 )
 def viewer_page():
     # Простая страница, рисующая два графика с использованием SSE
@@ -1437,7 +1518,8 @@ def viewer_page():
 @app.post(
     "/telegram/doctors",
     summary="Добавить врача в систему уведомлений",
-    description="Добавляет врача в список получателей уведомлений Telegram бота"
+    description="Добавляет врача в список получателей уведомлений Telegram бота",
+    tags=["Telegram Bot"]
 )
 async def add_doctor_endpoint(chat_id: str = Path(..., description="Chat ID врача в Telegram")):
     try:
@@ -1450,7 +1532,8 @@ async def add_doctor_endpoint(chat_id: str = Path(..., description="Chat ID вр
 @app.delete(
     "/telegram/doctors/{chat_id}",
     summary="Удалить врача из системы уведомлений",
-    description="Удаляет врача из списка получателей уведомлений Telegram бота"
+    description="Удаляет врача из списка получателей уведомлений Telegram бота",
+    tags=["Telegram Bot"]
 )
 async def remove_doctor_endpoint(chat_id: str = Path(..., description="Chat ID врача в Telegram")):
     try:
@@ -1463,7 +1546,8 @@ async def remove_doctor_endpoint(chat_id: str = Path(..., description="Chat ID �
 @app.post(
     "/telegram/listening/start",
     summary="Включить режим слушания",
-    description="Включает режим слушания для врача - бот будет отправлять уведомления. Автоматически добавляет врача в систему если его нет."
+    description="Включает режим слушания для врача - бот будет отправлять уведомления. Автоматически добавляет врача в систему если его нет.",
+    tags=["Telegram Bot"]
 )
 async def start_listening_endpoint(chat_id: str = Query(..., description="Chat ID врача в Telegram")):
     try:
@@ -1479,7 +1563,8 @@ async def start_listening_endpoint(chat_id: str = Query(..., description="Chat I
 @app.post(
     "/telegram/listening/stop",
     summary="Выключить режим слушания",
-    description="Выключает режим слушания для врача - бот перестанет отправлять уведомления"
+    description="Выключает режим слушания для врача - бот перестанет отправлять уведомления",
+    tags=["Telegram Bot"]
 )
 async def stop_listening_endpoint(chat_id: str = Query(..., description="Chat ID врача в Telegram")):
     try:
@@ -1492,7 +1577,8 @@ async def stop_listening_endpoint(chat_id: str = Query(..., description="Chat ID
 @app.get(
     "/telegram/listening/status",
     summary="Статус режима слушания",
-    description="Проверяет, находится ли врач в режиме слушания"
+    description="Проверяет, находится ли врач в режиме слушания",
+    tags=["Telegram Bot"]
 )
 async def listening_status_endpoint(chat_id: str = Query(..., description="Chat ID врача в Telegram")):
     try:
@@ -1505,7 +1591,8 @@ async def listening_status_endpoint(chat_id: str = Query(..., description="Chat 
 @app.get(
     "/telegram/listening/active",
     summary="Список активных врачей",
-    description="Возвращает список всех врачей в режиме слушания"
+    description="Возвращает список всех врачей в режиме слушания",
+    tags=["Telegram Bot"]
 )
 async def active_doctors_endpoint():
     try:
@@ -1523,7 +1610,8 @@ async def active_doctors_endpoint():
 @app.get(
     "/export/fhir/configs",
     summary="Список конфигураций FHIR экспорта",
-    description="Возвращает список доступных конфигураций для экспорта в FHIR"
+    description="Возвращает список доступных конфигураций для экспорта в FHIR",
+    tags=["FHIR Export"]
 )
 async def get_fhir_configs():
     """Получает список доступных конфигураций FHIR экспорта"""
@@ -1537,7 +1625,8 @@ async def get_fhir_configs():
 @app.post(
     "/export/fhir/observations",
     summary="Экспорт данных КТГ в FHIR R4",
-    description="Экспортирует данные КТГ пациента в формате FHIR R4 Bundle"
+    description="Экспортирует данные КТГ пациента в формате FHIR R4 Bundle",
+    tags=["FHIR Export"]
 )
 async def export_fhir_observations(request: FHIRExportRequest):
     """Экспортирует данные КТГ в FHIR R4"""
@@ -1606,7 +1695,8 @@ async def export_fhir_observations(request: FHIRExportRequest):
 @app.get(
     "/export/fhir/observations/{patient_id}",
     summary="Быстрый экспорт данных КТГ в FHIR",
-    description="Экспортирует последние 60 секунд данных КТГ пациента в FHIR R4"
+    description="Экспортирует последние 60 секунд данных КТГ пациента в FHIR R4",
+    tags=["FHIR Export"]
 )
 async def quick_export_fhir_observations(
     patient_id: str = Path(..., description="ID пациента"),
@@ -1627,7 +1717,8 @@ async def quick_export_fhir_observations(
 @app.get(
     "/monitoring/start/payload/{patient_id}",
     summary="Предпросмотр payload для /monitoring/start",
-    description="Возвращает JSON, который будет отправлен на внешний мониторинговый сервер"
+    description="Возвращает JSON, который будет отправлен на внешний мониторинговый сервер",
+    tags=["Monitoring"]
 )
 async def preview_start_payload(patient_id: str = Path(...)):
     # Получаем токен из БД
@@ -1664,7 +1755,8 @@ class HL7ExportRequest(BaseModel):
 @app.get(
     "/export/hl7/preview",
     summary="Предпросмотр HL7 v2 ORU^R01",
-    description="Генерирует HL7 сообщение для пациента за заданный период (без отправки)"
+    description="Генерирует HL7 сообщение для пациента за заданный период (без отправки)",
+    tags=["HL7 Export"]
 )
 async def preview_hl7(
     patient_id: str = Query(...),
@@ -1695,7 +1787,8 @@ async def preview_hl7(
 @app.post(
     "/export/hl7/send",
     summary="Отправка HL7 v2 ORU^R01 по MLLP",
-    description="Генерирует и отправляет HL7 сообщение по MLLP"
+    description="Генерирует и отправляет HL7 сообщение по MLLP",
+    tags=["HL7 Export"]
 )
 async def send_hl7(req: HL7ExportRequest):
     if mongo_db is None:

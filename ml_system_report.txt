@@ -1,0 +1,26 @@
+
+ОТЧЕТ О РАБОТЕ СИСТЕМЫ МАШИННОГО ОБУЧЕНИЯ
+Дата создания: 2025-09-18 07:16:53
+
+СОЗДАННЫЕ ФАЙЛЫ:
+✓ best_fetal_model.pkl
+✓ best_fetal_model_scaler.pkl
+✓ best_fetal_model_features.pkl
+✓ model_performance_comparison.png
+✓ roc_curves.png
+✓ feature_importance.png
+
+ВСЕГО СОЗДАНО ФАЙЛОВ: 6/6
+
+СИСТЕМА ГОТОВА К ИСПОЛЬЗОВАНИЮ:
+- Модель обучена и сохранена
+- Система предсказаний в реальном времени работает
+- Эмулятор данных функционирует
+- Визуализации созданы
+
+ДЛЯ ИСПОЛЬЗОВАНИЯ:
+1. Запустите: python realtime_predictor.py
+2. Или используйте классы в своем коде:
+   - FetalMLPredictor для обучения
+   - RealtimeFetalPredictor для предсказаний
+   - DataEmulator для эмуляции данных

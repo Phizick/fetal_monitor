@@ -109,7 +109,7 @@ ENV HOST=0.0.0.0 \
     PORT=8081 \
     MONGO_URI=mongodb://mongo:27017 \
     MONGO_DB=fetal \
-    TELEGRAM_BOT_TOKEN=8231116636:AAEzm1aDfPAo1yXY4Zmv6pjekIqnokk3afs
+    TELEGRAM_BOT_TOKEN=8231116636:AAGT2sXLc6yanLcqO0QlpmA2bCLMIJFyFc8
 
 EXPOSE 80 8081
 
@@ -127,20 +127,7 @@ nginx -g "daemon off;" &\n\
 NGINX_PID=$!\n\
 echo "✅ Nginx запущен (PID: $NGINX_PID)"\n\
 \n\
-echo "🤖 Запуск Telegram бота..."\n\
-python -c "\n\
-import asyncio\n\
-from telegram_bot import telegram_bot, notification_system\n\
-\n\
-async def run_bot():\n\
-    print(\"✅ Telegram бот запущен и готов к работе!\")\n\
-    while True:\n\
-        await asyncio.sleep(60)\n\
-\n\
-asyncio.run(run_bot())\n\
-" &\n\
-BOT_PID=$!\n\
-echo "✅ Telegram бот запущен (PID: $BOT_PID)"\n\
+echo "🤖 Telegram бот будет запущен в API процессе"\n\
 \n\
 echo "=" * 50\n\
 echo "✅ ВСЕ СЕРВИСЫ ЗАПУЩЕНЫ!"\n\
@@ -154,7 +141,7 @@ echo "=" * 50\n\
 # Cleanup function\n\
 cleanup() {\n\
     echo "🛑 Остановка сервисов..."\n\
-    kill $API_PID $NGINX_PID $BOT_PID 2>/dev/null\n\
+    kill $API_PID $NGINX_PID 2>/dev/null\n\
     exit 0\n\
 }\n\
 \n\

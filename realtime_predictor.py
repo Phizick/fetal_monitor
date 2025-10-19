@@ -427,9 +427,9 @@ class DataEmulator:
         # Создаем фиктивные данные
         n_samples = 1000
         self.data = pd.DataFrame({
-            'fhr_bpm': np.random.normal(140, 20, n_samples),
+            'fhr_bpm': np.random.normal(130, 15, n_samples),  # FHR плода ~130
             'uc_mmHg': np.random.normal(30, 10, n_samples),
-            'baseline_bpm': np.random.normal(140, 15, n_samples),
+            'baseline_bpm': np.random.normal(130, 15, n_samples),  # Базовый FHR плода
             'variability_bpm': np.random.normal(10, 5, n_samples),
             'accel': np.random.choice([0, 1], n_samples, p=[0.8, 0.2]),
             'decel': np.random.choice([0, 1], n_samples, p=[0.9, 0.1]),

@@ -8,6 +8,12 @@ if [ ! -f "Dockerfile" ]; then
     exit 1
 fi
 
+# Проверяем наличие Dockerfile.arm64
+if [ ! -f "Dockerfile.arm64" ]; then
+    echo "❌ Ошибка: Dockerfile.arm64 не найден."
+    exit 1
+fi
+
 # Останавливаем существующие контейнеры
 echo "🛑 Остановка существующих контейнеров..."
 docker-compose down
@@ -29,7 +35,7 @@ docker volume prune -f
 
 # Сборка для ARM64
 echo "🔨 Сборка Docker образа для ARM64..."
-docker buildx build --platform linux/arm64 -t fetal-app:arm64 . --no-cache --pull
+docker build --platform linux/arm64 -t fetal-app:arm64 . --no-cache
 
 if [ $? -eq 0 ]; then
     echo "✅ Сборка успешно завершена!"
